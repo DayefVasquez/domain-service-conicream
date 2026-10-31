@@ -1,0 +1,75 @@
+### Coni Cream Al-Paso - domain service (puerto 8082)
+### 1) Inicie sesión en AuthCore (puerto 8081) con SU usuario y copie el token aquí.
+###    NUNCA escriba contraseñas ni tokens reales en este archivo si lo va a subir al repositorio.
+@token = PEGUE_AQUI_EL_TOKEN_DE_AUTHCORE
+@host = http://localhost:8082
+
+### ---- Catálogo (HU-8): ver = cualquier usuario; crear/editar/retirar = ADMIN ----
+POST {{host}}/api/productos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "nombre": "Cono Vainilla", "marca": "Crem Helado", "precio": 2500, "unidadesPorCaja": 24, "cajasIniciales": 10 }
+
+###
+GET {{host}}/api/productos
+Authorization: Bearer {{token}}
+
+###
+PUT {{host}}/api/productos/1
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "nombre": "Cono Vainilla", "marca": "Crem Helado", "precio": 2800 }
+
+###
+DELETE {{host}}/api/productos/1
+Authorization: Bearer {{token}}
+
+### ---- Inventario (HU-9) ----
+GET {{host}}/api/productos/1/stock
+Authorization: Bearer {{token}}
+
+###
+POST {{host}}/api/productos/1/stock/reposiciones
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "cajas": 3 }
+
+### Conteo manual: fija el stock en 1 caja + 5 unidades sueltas
+PUT {{host}}/api/productos/1/stock
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "cajas": 1, "unidadesSueltas": 5 }
+
+### ---- Pedidos (HU-10): los hace el comerciante; el dueño sale del token ----
+POST {{host}}/api/pedidos
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "lineas": [ { "productoId": 1, "cantidad": 100 } ] }
+
+###
+GET {{host}}/api/pedidos/1
+Authorization: Bearer {{token}}
+
+### Confirmar: descuenta el stock (todo o nada)
+POST {{host}}/api/pedidos/1/confirmacion
+Authorization: Bearer {{token}}
+
+### ---- Liquidación (HU-11): se informa lo que sobró; se cobra lo vendido ----
+POST {{host}}/api/pedidos/1/liquidacion
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "sobrantes": [ { "productoId": 1, "cantidad": 15 } ] }
+
+###
+GET {{host}}/api/pedidos/1/liquidacion
+Authorization: Bearer {{token}}
+
+### ---- Reporte diario en Excel (HU-12): solo ADMIN. Sin fecha = hoy ----
+GET {{host}}/api/reportes/diario?fecha=2026-10-20
+Authorization: Bearer {{token}}
