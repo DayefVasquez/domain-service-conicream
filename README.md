@@ -1,6 +1,6 @@
 # Domain service — Coni Cream Al-Paso (Grupo BR)
 
-Servicio de dominio de la tienda de helados: **productos, inventario, pedidos, liquidación y reporte diario en Excel**.
+Servicio de dominio de la heladeria: **productos, inventario, pedidos, liquidación y reporte diario en Excel**.
 Se apoya en **AuthCore** para la identidad (JWT) y sigue su misma arquitectura hexagonal.
 
 **Stack (el declarado por el grupo):** Java 21 · Spring Boot 3.5 · Gradle · MySQL 8.4 · Apache POI.
