@@ -3,7 +3,6 @@ build/
 !gradle/wrapper/gradle-wrapper.jar
 .idea/
 *.iml
-out/
 *.log
 .env
 
@@ -29,7 +28,6 @@ skills-lock.json
 .gradle/
 build/
 bin/
-out/
 !gradle/wrapper/gradle-wrapper.jar
 
 # ==========================================
