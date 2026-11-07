@@ -6,11 +6,11 @@ plugins {
 
 group = 'com.conicream'
 version = '0.1.0-SNAPSHOT'
-description = 'Domain service de Coni Cream Al-Paso (Grupo BR): productos, inventario, pedidos, liquidación y reporte Excel - arquitectura hexagonal'
+description = 'Domain service de Coni Cream Al-Paso: productos, inventario, pedidos, liquidación y reporte Excel - arquitectura hexagonal'
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -20,7 +20,7 @@ repositories {
 
 ext {
     jjwtVersion = '0.12.6'
-    archunitVersion = '1.3.0'
+    archunitVersion = '1.4.1'   // Soporte nativo para bytecode de Java 25
     poiVersion = '5.3.0'
 }
 
@@ -29,17 +29,19 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 
-    // Verificación del JWT que emite AuthCore (HS384)
+    // Verificación del JWT que emite AuthCore
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
 
-    // Reporte diario en Excel (HU-12)
+    // Reporte oficial en Excel (FEAT-12)
     implementation "org.apache.poi:poi-ooxml:${poiVersion}"
 
-    // H2 para desarrollo y pruebas; MySQL 8.4 para el perfil "prod"
-    runtimeOnly 'com.h2database:h2'
-    runtimeOnly 'com.mysql:mysql-connector-j'
+    // Persistencia oficial en producción (PostgreSQL)
+    runtimeOnly 'org.postgresql:postgresql'
+
+    // H2 para pruebas unitarias herméticas sin levantar BD externa
+    testRuntimeOnly 'com.h2database:h2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'

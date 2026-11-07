@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+
+seguridad:
+  jwt:
+    # Secreto de pruebas idéntico al de Auth
+    secret-base64: lD6FtWWWLBqHzm7osQiel+C6RJqgGeqBzVpQ7bmGoyM=
+
+negocio:
+  zona-horaria: America/Bogota

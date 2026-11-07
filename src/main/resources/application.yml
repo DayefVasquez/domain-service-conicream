@@ -5,21 +5,22 @@ spring:
   application:
     name: domain-service-conicream
   datasource:
-    url: jdbc:h2:mem:conicream;MODE=MySQL;DB_CLOSE_DELAY=-1
-    username: sa
-    password: ""
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5434/core_db}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
   jpa:
-    open-in-view: false          # los adaptadores abren su propia transacción; nada de lazy loading en la capa REST
+    open-in-view: false # Los adaptadores abren su propia transacción; nada de lazy loading en capa REST
     hibernate:
       ddl-auto: update
     properties:
       hibernate.jdbc.time_zone: America/Bogota
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
 
 seguridad:
   jwt:
-    # Clave COMPARTIDA con AuthCore, en Base64. NO se escribe aquí: se entrega por variable de entorno.
-    # Sin esta variable la aplicación no arranca (falla rápido, a propósito).
-    secret-base64: ${JWT_SECRET_BASE64}
+    # Clave compartida con AuthCore en Base64 (Fallback idéntico al emisor de Auth)
+    secret-base64: ${JWT_SECRET_BASE64:lD6FtWWWLBqHzm7osQiel+C6RJqgGeqBzVpQ7bmGoyM=}
 
 negocio:
   zona-horaria: America/Bogota
