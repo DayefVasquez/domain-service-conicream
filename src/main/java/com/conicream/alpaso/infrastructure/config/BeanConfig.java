@@ -10,6 +10,7 @@ import java.time.ZoneId;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import com.conicream.alpaso.domain.service.LiquidacionConDescuentoPorVolumen;
 
 /**
  * Raíz de composición. El dominio y la aplicación no llevan anotaciones de Spring (Semana 5, DIP):
@@ -31,8 +32,7 @@ public class BeanConfig {
     /** Estrategia vigente (OCP): para otra regla de cobro se escribe otra clase y se cambia SOLO esta línea. */
     @Bean
     ReglaLiquidacion reglaLiquidacion() {
-        return new LiquidacionPorVendidas();
-    }
+        return new LiquidacionConDescuentoPorVolumen(new LiquidacionPorVendidas());    }
 
     @Bean
     ProductoService productoService(ProductoRepositoryPort productos, StockRepositoryPort stocks, TransaccionPort tx) {
