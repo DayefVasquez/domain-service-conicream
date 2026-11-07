@@ -39,7 +39,7 @@ dependencies {
 
     // H2 para desarrollo y pruebas; MySQL 8.4 para el perfil "prod"
     runtimeOnly 'com.h2database:h2'
-    runtimeOnly 'com.mysql:mysql-connector-j'
+    runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-test'
