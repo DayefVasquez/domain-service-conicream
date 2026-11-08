@@ -55,6 +55,7 @@ class ConiCreamRestTest {
     private String admin() { return token("admin", "ADMIN"); }
     private String ana() { return token(CEDULA_ANA, "USER"); }
     private String luis() { return token(CEDULA_LUIS, "USER"); }
+    private String bodeguero() { return token("bodeguero", "BODEGUERO"); }
 
     private MockHttpServletRequestBuilder con(MockHttpServletRequestBuilder peticion, String token, String json) {
         MockHttpServletRequestBuilder b = peticion.header("Authorization", "Bearer " + token);
@@ -215,4 +216,22 @@ class ConiCreamRestTest {
     void rutasDesconocidas() throws Exception {
         mvc.perform(con(get("/otra/cosa"), admin(), null)).andExpect(status().isForbidden());
     }
+
+    @Test
+@DisplayName("El BODEGUERO repone stock y ve el catálogo, pero no edita ni hace pedidos")
+void permisosDelBodeguero() throws Exception {
+long id = crearProducto("Cono Bodega", 24, 2);
+
+mvc.perform(con(get("/api/productos/" + id), bodeguero(), null)).andExpect(status().isOk());
+mvc.perform(con(post("/api/productos/" + id + "/stock/reposiciones"), bodeguero(), "{\"cajas\":1}"))
+        .andExpect(status().isOk());
+
+mvc.perform(con(put("/api/productos/" + id), bodeguero(),
+        "{\"nombre\":\"Z\",\"marca\":\"Y\",\"precio\":5}")).andExpect(status().isForbidden());
+mvc.perform(con(put("/api/productos/" + id + "/stock"), bodeguero(), "{\"cajas\":1}"))
+        .andExpect(status().isForbidden());
+mvc.perform(con(post("/api/pedidos"), bodeguero(),
+        "{\"lineas\":[{\"productoId\":" + id + ",\"cantidad\":1}]}")).andExpect(status().isForbidden());
+mvc.perform(con(get("/api/reportes/diario"), bodeguero(), null)).andExpect(status().isForbidden());
+}
 }

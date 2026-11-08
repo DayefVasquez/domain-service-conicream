@@ -29,9 +29,12 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
-                // Roles de AuthCore: USER = comerciante, ADMIN = administrador de Coni Cream.
-                // El catálogo y el stock los puede VER cualquier usuario autenticado, pero solo el ADMIN los cambia.
-                .requestMatchers(HttpMethod.GET, "/api/productos/**").hasAnyRole("USER", "ADMIN")
+                // Roles de AuthCore: USER = comerciante, ADMIN = administrador, BODEGUERO = repone stock.
+                // El catálogo y el stock los puede VER cualquier usuario autenticado de estos tres roles.
+                .requestMatchers(HttpMethod.GET, "/api/productos/**").hasAnyRole("USER", "ADMIN", "BODEGUERO")
+                // El BODEGUERO solo puede reponer stock; va ANTES de la regla general de ADMIN.
+                .requestMatchers(HttpMethod.POST, "/api/productos/*/stock/reposiciones").hasAnyRole("ADMIN", "BODEGUERO")
+                // El resto de operaciones sobre productos (crear, editar, retirar, conteo manual) es solo ADMIN.
                 .requestMatchers("/api/productos/**").hasRole("ADMIN")
                 // Los pedidos y su liquidación son del comerciante; que sea SU pedido lo decide la capa de aplicación.
                 .requestMatchers("/api/pedidos/**").hasAnyRole("USER", "ADMIN")
@@ -43,7 +46,6 @@ public class SecurityConfig {
             .addFilterBefore(new JwtAuthenticationFilter(validador), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
-
     private static void escribir(jakarta.servlet.http.HttpServletResponse res, int estado, String mensaje)
             throws java.io.IOException {
         res.setStatus(estado);
