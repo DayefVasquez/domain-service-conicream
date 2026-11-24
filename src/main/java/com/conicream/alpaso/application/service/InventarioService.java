@@ -10,7 +10,6 @@ import com.conicream.alpaso.domain.exception.ProductoNoEncontradoException;
 import com.conicream.alpaso.domain.model.Producto;
 import com.conicream.alpaso.domain.model.StockProducto;
 
-/** HU-9: control del inventario por cajas y unidades. */
 public class InventarioService implements InventarioUseCase {
 
     private final ProductoRepositoryPort productos;
@@ -26,22 +25,20 @@ public class InventarioService implements InventarioUseCase {
         return new ProductoConStock(producto(productoId), stock(productoId));
     }
 
-    /** No se repone un producto retirado. */
     @Override
     public ProductoConStock reponer(ReponerStockCommand c) {
         Producto producto = producto(c.productoId());
         producto.asegurarActivo();
         StockProducto stock = stock(c.productoId());
-        stock.reponerCajas(c.cajas());
+        stock.reponer(c.unidades()); // Entrada directa de unidades físicas
         return new ProductoConStock(producto, stocks.guardar(stock));
     }
 
-    /** El conteo manual sí se permite en un producto retirado: es la forma de dejar bien lo que quedó. */
     @Override
     public ProductoConStock corregir(CorregirStockCommand c) {
         Producto producto = producto(c.productoId());
         StockProducto stock = stock(c.productoId());
-        stock.corregir(c.cajas(), c.unidadesSueltas());
+        stock.ajustarFisico(c.unidadesReales()); // Conteo físico directo
         return new ProductoConStock(producto, stocks.guardar(stock));
     }
 

@@ -13,7 +13,7 @@ public class StockRepositoryEnMemoria implements StockRepositoryPort {
     private final Map<Long, StockProducto> almacen = new TreeMap<>();
 
     private static StockProducto copia(StockProducto s) {
-        return StockProducto.reconstruir(s.getProductoId(), s.getUnidadesPorCaja(), s.unidadesDisponibles());
+        return StockProducto.reconstruir(s.getProductoId(), s.unidadesDisponibles(), s.getStockMinimo());
     }
 
     @Override

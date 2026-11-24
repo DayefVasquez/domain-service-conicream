@@ -29,7 +29,7 @@ class LiquidacionServiceTest {
     }
 
     @Test
-    @DisplayName("Liquidar calcula (despachadas − sobrantes) × precio, cierra el pedido y NO devuelve sobrantes al stock")
+    @DisplayName("Liquidar calcula (despachadas − sobrantes) × precio, cierra el pedido y DEVUELVE sobrantes al stock")
     void liquida() {
         long pedido = pedidoConfirmado();
         int stockAntes = e.stockDe(1);
@@ -41,7 +41,8 @@ class LiquidacionServiceTest {
         assertEquals(85, l.getLineas().get(0).vendidas());
         assertEquals(15, l.getLineas().get(0).sobrantes());
         assertEquals(EstadoPedido.LIQUIDADO, e.pedidoService.porId(ANA, pedido).getEstado());
-        assertEquals(stockAntes, e.stockDe(1));
+        // Validación corregida: Los 15 sobrantes regresan físicamente al stock del congelador
+        assertEquals(stockAntes + 15, e.stockDe(1));
     }
 
     @Test

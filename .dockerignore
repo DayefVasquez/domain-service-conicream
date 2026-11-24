@@ -1,0 +1,15 @@
+.git/
+.gradle/
+build/
+bin/
+out/
+.idea/
+*.iml
+.vscode/
+graphify-out/
+.graphify*
+.archify/
+.env
+*.env
+.venv/
+init-db/

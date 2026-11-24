@@ -12,8 +12,10 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
 @Configuration
+@EnableMethodSecurity // <-- ACTIVA LAS ANOTACIONES @PreAuthorize EN LOS CONTROLADORES
 @EnableConfigurationProperties(JwtProperties.class)
 public class SecurityConfig {
 
@@ -25,21 +27,28 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain filtros(HttpSecurity http, JwtTokenValidator validador) throws Exception {
         http
-            .csrf(AbstractHttpConfigurer::disable)                       // API sin sesión ni cookies
+            .csrf(AbstractHttpConfigurer::disable)
             .cors(Customizer.withDefaults())
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(a -> a
-                // Roles de AuthCore: USER = comerciante, ADMIN = administrador de Coni Cream.
-                // El catálogo y el stock los puede VER cualquier usuario autenticado, pero solo el ADMIN los cambia.
-                .requestMatchers(HttpMethod.GET, "/api/productos/**").hasAnyRole("USER", "ADMIN")
-                .requestMatchers("/api/productos/**").hasRole("ADMIN")
-                // Los pedidos y su liquidación son del comerciante; que sea SU pedido lo decide la capa de aplicación.
-                .requestMatchers("/api/pedidos/**").hasAnyRole("USER", "ADMIN")
-                .requestMatchers("/api/reportes/**").hasRole("ADMIN")
+                // 1. Catálogo: Ver = Comerciante o Administrador; Modificar = Solo Administrador
+                .requestMatchers(HttpMethod.GET, "/api/productos/**", "/api/v1/productos/**")
+                    .hasAnyRole("COMERCIANTE", "ADMINISTRADOR", "USER", "ADMIN")
+                .requestMatchers("/api/productos/**", "/api/v1/productos/**")
+                    .hasAnyRole("ADMINISTRADOR", "ADMIN")
+
+                // 2. Pedidos y Liquidación: Comerciantes y Administradores
+                .requestMatchers("/api/pedidos/**", "/api/v1/pedidos/**")
+                    .hasAnyRole("COMERCIANTE", "ADMINISTRADOR", "USER", "ADMIN")
+
+                // 3. Reportes oficiales (Excel / Métricas): Solo Administrador
+                .requestMatchers("/api/reportes/**", "/api/v1/reportes/**")
+                    .hasAnyRole("ADMINISTRADOR", "ADMIN")
+
                 .anyRequest().denyAll())
             .exceptionHandling(e -> e
-                .authenticationEntryPoint((req, res, ex) -> escribir(res, 401, "No autenticado: falta un token válido"))
-                .accessDeniedHandler((req, res, ex) -> escribir(res, 403, "No tiene permiso para esta operación")))
+                .authenticationEntryPoint((req, res, ex) -> escribir(res, 401, "No autenticado: falta un token válido de Coni-Cream"))
+                .accessDeniedHandler((req, res, ex) -> escribir(res, 403, "No tiene permisos para esta operación")))
             .addFilterBefore(new JwtAuthenticationFilter(validador), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }

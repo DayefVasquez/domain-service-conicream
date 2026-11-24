@@ -1,3 +1,4 @@
 package com.conicream.alpaso.application.port.in.command;
 
-public record ReponerStockCommand(long productoId, int cajas) { }
+/** Entrada directa de unidades físicas al congelador (sin cajas intermedias). */
+public record ReponerStockCommand(long productoId, int unidades) { }

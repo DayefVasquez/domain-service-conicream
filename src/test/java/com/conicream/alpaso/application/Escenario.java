@@ -12,7 +12,6 @@ import com.conicream.alpaso.testsupport.*;
 import java.math.BigDecimal;
 import java.util.List;
 
-/** Arma los servicios con dobles en memoria: así se prueba la aplicación sin Spring ni base de datos. */
 final class Escenario {
 
     static final Solicitante ADMIN = new Solicitante("admin", true);
@@ -29,11 +28,22 @@ final class Escenario {
     final ProductoService productoService = new ProductoService(productos, stocks, tx);
     final InventarioService inventarioService = new InventarioService(productos, stocks);
     final PedidoService pedidoService = new PedidoService(productos, stocks, pedidos, tx, Datos.relojFijo(), new ValidadorStock());
-    final LiquidacionService liquidacionService = new LiquidacionService(pedidos, liquidaciones, tx, new LiquidacionPorVendidas());
+
+    final LiquidacionService liquidacionService = new LiquidacionService(
+            pedidos, liquidaciones, stocks, tx, new LiquidacionPorVendidas(), liq -> new byte[]{1, 2, 3});
+
     final ReporteService reporteService = new ReporteService(pedidos, liquidaciones, exportador, Datos.relojFijo());
 
-    ProductoConStock producto(String nombre, String marca, long precio, int unidadesPorCaja, int cajas) {
-        return productoService.registrar(new RegistrarProductoCommand(nombre, marca, BigDecimal.valueOf(precio), unidadesPorCaja, cajas));
+    ProductoConStock producto(String codigo, String nombre, String marca, long precio, int unidadesTotales, int stockMinimo) {
+        return productoService.registrar(new RegistrarProductoCommand(
+                codigo, nombre, marca, BigDecimal.valueOf(precio), unidadesTotales, stockMinimo));
+    }
+
+    // Adaptador de compatibilidad para las pruebas existentes que usaban el formato de cajas del profesor
+    ProductoConStock producto(String nombre, String marca, long precio, int unidadesPorCaja, int cajasIniciales) {
+        String cod = "PROD-" + Math.abs((nombre + marca).hashCode() % 10000);
+        int unidadesTotales = unidadesPorCaja * cajasIniciales; // Convierte las cajas de los tests a unidades puras
+        return producto(cod, nombre, marca, precio, unidadesTotales, 5);
     }
 
     Pedido pedido(Solicitante dueño, long productoId, int cantidad) {

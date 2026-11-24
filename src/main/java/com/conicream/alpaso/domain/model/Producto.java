@@ -5,40 +5,39 @@ import com.conicream.alpaso.domain.exception.ValorInvalidoException;
 import com.conicream.alpaso.domain.vo.Money;
 
 /**
- * Producto de la distribución. Se retira (baja lógica) en vez de borrarse, para no perder el historial de pedidos.
- * Las unidades por caja dependen de la marca y no cambian después de creado.
+ * Entidad de Dominio: Helado o producto de la distribución Coni-Cream.
+ * Utiliza borrado lógico (retirar/reactivar) para proteger la trazabilidad contable.
+ * Cero dependencias de infraestructura y frameworks.
  */
 public class Producto {
 
-    private static final int MAX_UNIDADES_POR_CAJA = 10_000;
-
     private final Long id;
+    private String codigo;
     private String nombre;
     private String marca;
     private Money precio;
-    private final int unidadesPorCaja;
     private boolean activo;
 
-    private Producto(Long id, String nombre, String marca, Money precio, int unidadesPorCaja, boolean activo) {
-        if (unidadesPorCaja < 1 || unidadesPorCaja > MAX_UNIDADES_POR_CAJA) {
-            throw new ValorInvalidoException("Las unidades por caja deben estar entre 1 y " + MAX_UNIDADES_POR_CAJA);
-        }
+    private Producto(Long id, String codigo, String nombre, String marca, Money precio, boolean activo) {
         this.id = id;
-        this.nombre = validarTexto(nombre, "nombre", 100);
-        this.marca = validarTexto(marca, "marca", 60);
+        this.codigo = validarTexto(codigo, "código de fábrica", 50);
+        this.nombre = validarTexto(nombre, "nombre", 120);
+        this.marca = validarTexto(marca, "marca", 80);
         this.precio = validarPrecio(precio);
-        this.unidadesPorCaja = unidadesPorCaja;
         this.activo = activo;
     }
 
-    /** Factory Method (Semana 7): un producto nuevo nace activo y sin id. */
-    public static Producto registrar(String nombre, String marca, Money precio, int unidadesPorCaja) {
-        return new Producto(null, nombre, marca, precio, unidadesPorCaja, true);
+    /** Factory method para registrar un producto nuevo de catálogo (nace activo). */
+    public static Producto registrar(String codigo, String nombre, String marca, Money precio) {
+        return new Producto(null, codigo, nombre, marca, precio, true);
     }
 
-    public static Producto reconstruir(long id, String nombre, String marca, Money precio, int unidadesPorCaja, boolean activo) {
-        return new Producto(id, nombre, marca, precio, unidadesPorCaja, activo);
+    /** Reconstrucción desde el adaptador de persistencia. */
+    public static Producto reconstruir(long id, String codigo, String nombre, String marca, Money precio, boolean activo) {
+        return new Producto(id, codigo, nombre, marca, precio, activo);
     }
+
+    // --- Validaciones de Invariantes de Dominio ---
 
     private static String validarTexto(String valor, String campo, int max) {
         if (valor == null || valor.isBlank()) {
@@ -53,10 +52,12 @@ public class Producto {
 
     private static Money validarPrecio(Money precio) {
         if (precio == null || !precio.esMayorQueCero()) {
-            throw new ValorInvalidoException("El precio debe ser mayor que cero");
+            throw new ValorInvalidoException("El precio base de liquidación debe ser mayor a cero");
         }
         return precio;
     }
+
+    // --- Métodos de Negocio (DDD) ---
 
     public void asegurarActivo() {
         if (!activo) {
@@ -64,27 +65,45 @@ public class Producto {
         }
     }
 
-    public void editar(String nombre, String marca, Money precio) {
+    /** Edición de catálogo: Solo aplicable a productos en estado activo. */
+    public void editar(String codigo, String nombre, String marca, Money precio) {
         asegurarActivo();
-        this.nombre = validarTexto(nombre, "nombre", 100);
-        this.marca = validarTexto(marca, "marca", 60);
+        this.codigo = validarTexto(codigo, "código de fábrica", 50);
+        this.nombre = validarTexto(nombre, "nombre", 120);
+        this.marca = validarTexto(marca, "marca", 80);
         this.precio = validarPrecio(precio);
     }
 
+    /**
+     * Borrado lógico: Desactiva el producto al finalizar su temporada (ej. Navidad, Halloween).
+     * No borra el registro de la base de datos para no romper historiales de pedidos.
+     */
     public void retirar() {
         asegurarActivo();
         this.activo = false;
     }
 
-    /** Nombre con el que aparece en pedidos y reportes. */
+    /**
+     * Reactivación de temporada: Permite que un producto retirado vuelva a venderse
+     * cuando inicie un nuevo ciclo comercial.
+     */
+    public void reactivar() {
+        if (this.activo) {
+            throw new ValorInvalidoException("El producto '" + this.nombre + "' ya se encuentra activo");
+        }
+        this.activo = true;
+    }
+
+    /** Nombre compuesto para representación en pedidos y planillas oficiales. */
     public String nombreCompleto() {
         return nombre + " (" + marca + ")";
     }
 
+    // --- Getters limpios ---
     public Long getId() { return id; }
+    public String getCodigo() { return codigo; }
     public String getNombre() { return nombre; }
     public String getMarca() { return marca; }
     public Money getPrecio() { return precio; }
-    public int getUnidadesPorCaja() { return unidadesPorCaja; }
     public boolean isActivo() { return activo; }
 }

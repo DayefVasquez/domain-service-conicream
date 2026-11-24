@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 
-/** Datos de ejemplo. El reloj fijo es el 20 de octubre de 2026, 10:00 en Bogotá. */
+/** Datos de ejemplo para pruebas con reloj fijo en Bogotá. */
 public final class Datos {
 
     public static final LocalDate HOY = LocalDate.of(2026, 10, 20);
@@ -19,6 +19,6 @@ public final class Datos {
     }
 
     public static Producto cono() {
-        return Producto.registrar("Cono Vainilla", "Crem Helado", Money.de(2500), 24);
+        return Producto.registrar("CONO-001", "Cono Vainilla", "Crem Helado", Money.de(2500));
     }
 }

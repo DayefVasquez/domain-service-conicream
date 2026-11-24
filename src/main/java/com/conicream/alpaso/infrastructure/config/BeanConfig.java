@@ -52,8 +52,9 @@ public class BeanConfig {
 
     @Bean
     LiquidacionService liquidacionService(PedidoRepositoryPort pedidos, LiquidacionRepositoryPort liquidaciones,
-                                          TransaccionPort tx, ReglaLiquidacion regla) {
-        return new LiquidacionService(pedidos, liquidaciones, tx, regla);
+                                          StockRepositoryPort stocks, TransaccionPort tx, ReglaLiquidacion regla,
+                                          ComprobantePdfPort comprobantePdfPort) {
+        return new LiquidacionService(pedidos, liquidaciones, stocks, tx, regla, comprobantePdfPort);
     }
 
     @Bean

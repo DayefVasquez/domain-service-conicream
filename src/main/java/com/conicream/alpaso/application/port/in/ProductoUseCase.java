@@ -7,13 +7,9 @@ import java.util.List;
 
 public interface ProductoUseCase {
     ProductoConStock registrar(RegistrarProductoCommand comando);
-
     ProductoConStock editar(EditarProductoCommand comando);
-
-    /** Baja lógica: el producto queda inactivo, no se borra. */
     ProductoConStock retirar(long id);
-
+    ProductoConStock reactivar(long id); // Reactivación para nuevas temporadas
     ProductoConStock porId(long id);
-
     List<ProductoConStock> listar(boolean soloActivos);
 }

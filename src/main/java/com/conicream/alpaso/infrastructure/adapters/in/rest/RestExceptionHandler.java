@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
-/** Traduce las excepciones del dominio a códigos HTTP. El dominio no sabe qué es un 404. */
 @RestControllerAdvice
 public class RestExceptionHandler {
 
@@ -31,8 +30,9 @@ public class RestExceptionHandler {
         return responder(HttpStatus.FORBIDDEN, e.getMessage());
     }
 
-    @ExceptionHandler(NoEncontradoException.class)
-    ResponseEntity<ErrorResponse> noEncontrado(NoEncontradoException e) {
+    // Único manejador para todos los errores de recurso no encontrado -> 404 Not Found
+    @ExceptionHandler({PedidoNoEncontradoException.class, ProductoNoEncontradoException.class, LiquidacionNoEncontradaException.class, NoEncontradoException.class})
+    ResponseEntity<ErrorResponse> noEncontrado(RuntimeException e) {
         return responder(HttpStatus.NOT_FOUND, e.getMessage());
     }
 
@@ -41,7 +41,6 @@ public class RestExceptionHandler {
         return responder(HttpStatus.CONFLICT, e.getMessage());
     }
 
-    /** El detalle dice, por cada producto que no alcanza, cuánto hay y cuánto se pidió. */
     @ExceptionHandler(StockInsuficienteException.class)
     ResponseEntity<ErrorResponse> stockInsuficiente(StockInsuficienteException e) {
         List<String> detalles = e.getFaltantes().stream()
@@ -70,7 +69,7 @@ public class RestExceptionHandler {
     @ExceptionHandler(Exception.class)
     ResponseEntity<ErrorResponse> inesperado(Exception e) {
         LOG.error("Error no controlado", e);
-        return responder(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor");   // sin filtrar detalles internos
+        return responder(HttpStatus.INTERNAL_SERVER_ERROR, "Error interno del servidor");
     }
 
     private ResponseEntity<ErrorResponse> responder(HttpStatus estado, String mensaje) {

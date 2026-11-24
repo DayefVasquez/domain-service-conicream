@@ -20,7 +20,6 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** HU-8: gestión de productos. Al crear un producto se crea también su stock inicial, en la misma operación. */
 public class ProductoService implements ProductoUseCase {
 
     private final ProductoRepositoryPort productos;
@@ -35,23 +34,24 @@ public class ProductoService implements ProductoUseCase {
 
     @Override
     public ProductoConStock registrar(RegistrarProductoCommand c) {
-        exigirCampos(c.nombre(), c.marca(), c.precio());
-        Producto nuevo = Producto.registrar(c.nombre(), c.marca(), Money.de(c.precio()), c.unidadesPorCaja());
-        StockProducto stockInicial = StockProducto.crear(0, nuevo.getUnidadesPorCaja(), c.cajasIniciales());   // valida las cajas antes de guardar
+        exigirCampos(c.codigo(), c.nombre(), c.marca(), c.precio());
+        Producto nuevo = Producto.registrar(c.codigo(), c.nombre(), c.marca(), Money.de(c.precio()));
+        StockProducto stockInicial = StockProducto.crear(0, c.unidadesIniciales(), c.stockMinimo());
         asegurarNombreLibre(nuevo.getNombre(), nuevo.getMarca(), null);
+
         return transaccion.ejecutar(() -> {
             Producto guardado = productos.guardar(nuevo);
-            StockProducto stock = stocks.guardar(StockProducto.reconstruir(guardado.getId(),
-                    guardado.getUnidadesPorCaja(), stockInicial.unidadesDisponibles()));
+            StockProducto stock = stocks.guardar(StockProducto.reconstruir(
+                    guardado.getId(), stockInicial.unidadesDisponibles(), stockInicial.getStockMinimo()));
             return new ProductoConStock(guardado, stock);
         });
     }
 
     @Override
     public ProductoConStock editar(EditarProductoCommand c) {
-        exigirCampos(c.nombre(), c.marca(), c.precio());
+        exigirCampos(c.codigo(), c.nombre(), c.marca(), c.precio());
         Producto producto = buscar(c.id());
-        producto.editar(c.nombre(), c.marca(), Money.de(c.precio()));
+        producto.editar(c.codigo(), c.nombre(), c.marca(), Money.de(c.precio()));
         asegurarNombreLibre(producto.getNombre(), producto.getMarca(), producto.getId());
         return conStock(productos.guardar(producto));
     }
@@ -60,6 +60,13 @@ public class ProductoService implements ProductoUseCase {
     public ProductoConStock retirar(long id) {
         Producto producto = buscar(id);
         producto.retirar();
+        return conStock(productos.guardar(producto));
+    }
+
+    @Override
+    public ProductoConStock reactivar(long id) {
+        Producto producto = buscar(id);
+        producto.reactivar();
         return conStock(productos.guardar(producto));
     }
 
@@ -92,9 +99,9 @@ public class ProductoService implements ProductoUseCase {
                 .ifPresent(otro -> { throw new ProductoDuplicadoException(nombre, marca); });
     }
 
-    /** Lista todos los campos faltantes juntos, para que quien llama corrija de una vez. */
-    private static void exigirCampos(String nombre, String marca, BigDecimal precio) {
+    private static void exigirCampos(String codigo, String nombre, String marca, BigDecimal precio) {
         List<String> faltan = new ArrayList<>();
+        if (codigo == null || codigo.isBlank()) faltan.add("código");
         if (nombre == null || nombre.isBlank()) faltan.add("nombre");
         if (marca == null || marca.isBlank()) faltan.add("marca");
         if (precio == null) faltan.add("precio");

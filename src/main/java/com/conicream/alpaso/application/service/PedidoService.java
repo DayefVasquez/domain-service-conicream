@@ -3,6 +3,7 @@ package com.conicream.alpaso.application.service;
 import com.conicream.alpaso.application.port.in.PedidoUseCase;
 import com.conicream.alpaso.application.port.in.Solicitante;
 import com.conicream.alpaso.application.port.in.command.CrearPedidoCommand;
+import com.conicream.alpaso.application.port.in.command.RecargarPedidoCommand;
 import com.conicream.alpaso.application.port.out.PedidoRepositoryPort;
 import com.conicream.alpaso.application.port.out.ProductoRepositoryPort;
 import com.conicream.alpaso.application.port.out.StockRepositoryPort;
@@ -26,7 +27,6 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-/** HU-10: crear y confirmar pedidos. Crear valida contra el stock; confirmar lo vuelve a validar y lo descuenta. */
 public class PedidoService implements PedidoUseCase {
 
     private final ProductoRepositoryPort productos;
@@ -51,17 +51,9 @@ public class PedidoService implements PedidoUseCase {
         if (c.lineas() == null || c.lineas().isEmpty()) {
             throw new ValorInvalidoException("El pedido debe tener al menos una línea");
         }
-        Map<Long, Integer> cantidades = new LinkedHashMap<>();
-        for (CrearPedidoCommand.Linea l : c.lineas()) {
-            if (l.cantidad() <= 0) {
-                throw new ValorInvalidoException("La cantidad del producto " + l.productoId() + " debe ser mayor que cero");
-            }
-            try {
-                cantidades.merge(l.productoId(), l.cantidad(), Math::addExact);
-            } catch (ArithmeticException e) {
-                throw new ValorInvalidoException("La cantidad del producto " + l.productoId() + " es demasiado grande");
-            }
-        }
+        Map<Long, Integer> cantidades = procesarCantidades(c.lineas().stream()
+                .map(l -> new ParIdCantidad(l.productoId(), l.cantidad())).toList());
+
         Map<Long, Producto> catalogo = cargarProductos(cantidades.keySet());
         List<DetallePedido> detalles = new ArrayList<>();
         cantidades.forEach((id, cantidad) -> {
@@ -77,16 +69,30 @@ public class PedidoService implements PedidoUseCase {
     public Pedido confirmar(Solicitante solicitante, long pedidoId) {
         return transaccion.ejecutar(() -> {
             Pedido pedido = cargar(solicitante, pedidoId);
-            pedido.confirmar();   // falla si no está en BORRADOR, antes de tocar el stock
-            Set<Long> ids = pedido.getDetalles().stream().map(DetallePedido::productoId).collect(Collectors.toSet());
-            cargarProductos(ids).values().forEach(Producto::asegurarActivo);
-            Map<Long, StockProducto> stock = cargarStocks(ids);
-            validadorStock.validar(pedido.getDetalles(), stock);   // valida TODO antes de descontar algo
-            for (DetallePedido d : pedido.getDetalles()) {
-                StockProducto s = stock.get(d.productoId());
-                s.descontar(d.cantidad());
-                stocks.guardar(s);
-            }
+            pedido.confirmar();
+            descontarStockDeDetalles(pedido.getDetalles());
+            return pedidos.guardar(pedido);
+        });
+    }
+
+    @Override
+    public Pedido recargar(RecargarPedidoCommand c) {
+        return transaccion.ejecutar(() -> {
+            Pedido pedido = cargar(c.solicitante(), c.pedidoId());
+            Map<Long, Integer> cantidades = procesarCantidades(c.lineas().stream()
+                    .map(l -> new ParIdCantidad(l.productoId(), l.cantidad())).toList());
+
+            Map<Long, Producto> catalogo = cargarProductos(cantidades.keySet());
+            List<DetallePedido> nuevasLineas = new ArrayList<>();
+            cantidades.forEach((id, cantidad) -> {
+                Producto p = catalogo.get(id);
+                p.asegurarActivo();
+                nuevasLineas.add(new DetallePedido(id, p.nombreCompleto(), cantidad, p.getPrecio()));
+            });
+
+            // Valida y descuenta inmediatamente el stock para la recarga en ruta
+            descontarStockDeDetalles(nuevasLineas);
+            pedido.recargar(nuevasLineas);
             return pedidos.guardar(pedido);
         });
     }
@@ -94,6 +100,18 @@ public class PedidoService implements PedidoUseCase {
     @Override
     public Pedido porId(Solicitante solicitante, long pedidoId) {
         return cargar(solicitante, pedidoId);
+    }
+
+    private void descontarStockDeDetalles(List<DetallePedido> detalles) {
+        Set<Long> ids = detalles.stream().map(DetallePedido::productoId).collect(Collectors.toSet());
+        cargarProductos(ids).values().forEach(Producto::asegurarActivo);
+        Map<Long, StockProducto> stock = cargarStocks(ids);
+        validadorStock.validar(detalles, stock);
+        for (DetallePedido d : detalles) {
+            StockProducto s = stock.get(d.productoId());
+            s.descontar(d.cantidad());
+            stocks.guardar(s);
+        }
     }
 
     private Pedido cargar(Solicitante solicitante, long pedidoId) {
@@ -118,5 +136,22 @@ public class PedidoService implements PedidoUseCase {
     private Map<Long, StockProducto> cargarStocks(Set<Long> ids) {
         return stocks.buscarPorProductos(ids).stream()
                 .collect(Collectors.toMap(StockProducto::getProductoId, Function.identity()));
+    }
+
+    private record ParIdCantidad(long productoId, int cantidad) {}
+
+    private Map<Long, Integer> procesarCantidades(List<ParIdCantidad> lineas) {
+        Map<Long, Integer> cantidades = new LinkedHashMap<>();
+        for (ParIdCantidad l : lineas) {
+            if (l.cantidad() <= 0) {
+                throw new ValorInvalidoException("La cantidad debe ser mayor que cero");
+            }
+            try {
+                cantidades.merge(l.productoId(), l.cantidad(), Math::addExact);
+            } catch (ArithmeticException e) {
+                throw new ValorInvalidoException("Cantidad demasiado grande");
+            }
+        }
+        return cantidades;
     }
 }

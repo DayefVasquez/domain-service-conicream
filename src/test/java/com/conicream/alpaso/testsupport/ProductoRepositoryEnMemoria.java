@@ -10,14 +10,14 @@ import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Guarda COPIAS, como una base de datos real: modificar un objeto leído no cambia lo guardado. */
+/** Guarda COPIAS en memoria para pruebas desacopladas. */
 public class ProductoRepositoryEnMemoria implements ProductoRepositoryPort {
 
     private final Map<Long, Producto> almacen = new TreeMap<>();
     private final AtomicLong secuencia = new AtomicLong();
 
     private static Producto copia(Producto p, long id) {
-        return Producto.reconstruir(id, p.getNombre(), p.getMarca(), p.getPrecio(), p.getUnidadesPorCaja(), p.isActivo());
+        return Producto.reconstruir(id, p.getCodigo(), p.getNombre(), p.getMarca(), p.getPrecio(), p.isActivo());
     }
 
     @Override
@@ -35,7 +35,8 @@ public class ProductoRepositoryEnMemoria implements ProductoRepositoryPort {
     @Override
     public Optional<Producto> buscarActivoPorNombreYMarca(String nombre, String marca) {
         return almacen.values().stream()
-                .filter(p -> p.isActivo() && p.getNombre().toLowerCase(Locale.ROOT).equals(nombre.toLowerCase(Locale.ROOT))
+                .filter(p -> p.isActivo()
+                        && p.getNombre().toLowerCase(Locale.ROOT).equals(nombre.toLowerCase(Locale.ROOT))
                         && p.getMarca().toLowerCase(Locale.ROOT).equals(marca.toLowerCase(Locale.ROOT)))
                 .findFirst().map(p -> copia(p, p.getId()));
     }

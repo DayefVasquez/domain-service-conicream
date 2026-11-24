@@ -6,7 +6,13 @@ import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProductoJpaRepository extends JpaRepository<ProductoEntity, Long> {
-    Optional<ProductoEntity> findByClaveActiva(String claveActiva);
+
+    Optional<ProductoEntity> findByCodigo(String codigo);
+
+    // Búsqueda limpia de duplicados activos sin concatenaciones artificiales
+    Optional<ProductoEntity> findByNombreIgnoreCaseAndMarcaIgnoreCaseAndActivoTrue(String nombre, String marca);
+
     List<ProductoEntity> findByActivoTrueOrderByIdAsc();
+
     List<ProductoEntity> findAllByOrderByIdAsc();
 }

@@ -10,6 +10,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.conicream.alpaso.domain.model.EstadoPedido;
+import com.conicream.alpaso.domain.vo.Money;
 import com.jayway.jsonpath.JsonPath;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -23,15 +25,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
-/**
- * Prueba de punta a punta (HTTP -> casos de uso -> dominio -> H2) con seguridad JWT real.
- * El secreto de abajo es SOLO de pruebas (48 bytes aleatorios en Base64); no es el de AuthCore.
- */
 @SpringBootTest
 @AutoConfigureMockMvc
 @TestPropertySource(properties = "seguridad.jwt.secret-base64=Lu7e1SCfczRWZpilqgAQVZqNiJopaxOzxiu9UaLENKGTeGeBtIyfpBegmsIKQS3D6pmEiahNszQXjzxmhjabaw==")
@@ -44,7 +43,6 @@ class ConiCreamRestTest {
     @Autowired
     private MockMvc mvc;
 
-    /** Imita el token de AuthCore: sub = cédula del usuario, roles = lista de roles. */
     private String token(String sub, String... roles) {
         Instant ahora = Instant.now();
         return Jwts.builder().subject(sub).claim("uid", 99).claim("roles", List.of(roles))
@@ -52,12 +50,12 @@ class ConiCreamRestTest {
                 .signWith(Keys.hmacShaKeyFor(Decoders.BASE64.decode(SECRETO)), Jwts.SIG.HS384).compact();
     }
 
-    private String admin() { return token("admin", "ADMIN"); }
-    private String ana() { return token(CEDULA_ANA, "USER"); }
-    private String luis() { return token(CEDULA_LUIS, "USER"); }
+    private String admin() { return token("admin", "ADMINISTRADOR"); }
+    private String ana() { return token(CEDULA_ANA, "COMERCIANTE"); }
+    private String luis() { return token(CEDULA_LUIS, "COMERCIANTE"); }
 
     private MockHttpServletRequestBuilder con(MockHttpServletRequestBuilder peticion, String token, String json) {
-        MockHttpServletRequestBuilder b = peticion.header("Authorization", "Bearer " + token);
+        MockHttpServletRequestBuilder b = peticion.header(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         return json == null ? b : b.contentType(MediaType.APPLICATION_JSON).content(json);
     }
 
@@ -66,9 +64,11 @@ class ConiCreamRestTest {
     }
 
     private long crearProducto(String nombre, int unidadesPorCaja, int cajas) throws Exception {
-        String json = "{\"nombre\":\"" + nombre + "\",\"marca\":\"Crem Helado\",\"precio\":2500,\"unidadesPorCaja\":"
-                + unidadesPorCaja + ",\"cajasIniciales\":" + cajas + "}";
-        return id(mvc.perform(con(post("/api/productos"), admin(), json)).andExpect(status().isCreated())
+        String cod = "PROD-" + Math.abs((nombre).hashCode() % 10000);
+        int unidadesTotales = unidadesPorCaja * cajas;
+        String json = "{\"codigo\":\"" + cod + "\",\"nombre\":\"" + nombre + "\",\"marca\":\"Crem Helado\",\"precio\":2500,\"unidadesIniciales\":"
+                + unidadesTotales + ",\"stockMinimo\":5}";
+        return id(mvc.perform(con(post("/api/v1/productos"), admin(), json)).andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString());
     }
 
@@ -88,12 +88,12 @@ class ConiCreamRestTest {
     @Test
     @DisplayName("El comerciante ve el catálogo pero no lo modifica; el ADMIN sí")
     void permisosDelCatalogo() throws Exception {
-        mvc.perform(con(post("/api/productos"), ana(), "{\"nombre\":\"X\",\"marca\":\"Y\",\"precio\":1,\"unidadesPorCaja\":1}"))
+        mvc.perform(con(post("/api/productos"), ana(), "{\"codigo\":\"P-1\",\"nombre\":\"X\",\"marca\":\"Y\",\"precio\":1,\"unidadesIniciales\":1,\"stockMinimo\":1}"))
                 .andExpect(status().isForbidden());
         long id = crearProducto("Cono Permisos", 24, 1);
         mvc.perform(con(get("/api/productos/" + id), ana(), null)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.nombreCompleto").value("Cono Permisos (Crem Helado)"));
-        mvc.perform(con(put("/api/productos/" + id), ana(), "{\"nombre\":\"Z\",\"marca\":\"Y\",\"precio\":5}"))
+        mvc.perform(con(put("/api/productos/" + id), ana(), "{\"codigo\":\"P-1\",\"nombre\":\"Z\",\"marca\":\"Y\",\"precio\":5}"))
                 .andExpect(status().isForbidden());
         mvc.perform(con(delete("/api/productos/" + id), ana(), null)).andExpect(status().isForbidden());
     }
@@ -101,7 +101,7 @@ class ConiCreamRestTest {
     @Test
     @DisplayName("Registrar con datos faltantes responde 400 y lista todos los campos")
     void camposFaltantes() throws Exception {
-        mvc.perform(con(post("/api/productos"), admin(), "{\"unidadesPorCaja\":24}"))
+        mvc.perform(con(post("/api/productos"), admin(), "{\"unidadesIniciales\":24}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("nombre")))
                 .andExpect(jsonPath("$.mensaje").value(org.hamcrest.Matchers.containsString("marca")))
@@ -113,22 +113,21 @@ class ConiCreamRestTest {
     void productoDuplicado() throws Exception {
         crearProducto("Cono Repetido", 24, 1);
         mvc.perform(con(post("/api/productos"), admin(),
-                "{\"nombre\":\"cono repetido\",\"marca\":\"CREM HELADO\",\"precio\":1,\"unidadesPorCaja\":1}"))
+                "{\"codigo\":\"P-DUP\",\"nombre\":\"cono repetido\",\"marca\":\"CREM HELADO\",\"precio\":1,\"unidadesIniciales\":1,\"stockMinimo\":1}"))
                 .andExpect(status().isConflict());
     }
 
     @Test
-    @DisplayName("Inventario: reponer cajas y corregir por conteo manual")
+    @DisplayName("Inventario: reponer unidades y corregir por conteo manual")
     void inventario() throws Exception {
         long id = crearProducto("Cono Inventario", 24, 2);
         mvc.perform(con(get("/api/productos/" + id + "/stock"), ana(), null)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.unidadesDisponibles").value(48));
-        mvc.perform(con(post("/api/productos/" + id + "/stock/reposiciones"), admin(), "{\"cajas\":3}"))
+        mvc.perform(con(post("/api/productos/" + id + "/stock/reposiciones"), admin(), "{\"unidades\":72}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.unidadesDisponibles").value(120));
-        mvc.perform(con(put("/api/productos/" + id + "/stock"), admin(), "{\"cajas\":1,\"unidadesSueltas\":5}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.unidadesDisponibles").value(29))
-                .andExpect(jsonPath("$.cajas").value(1)).andExpect(jsonPath("$.unidadesSueltas").value(5));
-        mvc.perform(con(post("/api/productos/" + id + "/stock/reposiciones"), ana(), "{\"cajas\":1}"))
+        mvc.perform(con(put("/api/productos/" + id + "/stock"), admin(), "{\"unidadesReales\":29}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.unidadesDisponibles").value(29));
+        mvc.perform(con(post("/api/productos/" + id + "/stock/reposiciones"), ana(), "{\"unidades\":24}"))
                 .andExpect(status().isForbidden());
     }
 
@@ -153,15 +152,19 @@ class ConiCreamRestTest {
         mvc.perform(con(post("/api/pedidos/" + pedido + "/confirmacion"), ana(), null)).andExpect(status().isConflict());
 
         String liquidar = "{\"sobrantes\":[{\"productoId\":" + producto + ",\"cantidad\":15}]}";
+        // La comerciante (ana) liquida su pedido y recibe 201 Created
         mvc.perform(con(post("/api/pedidos/" + pedido + "/liquidacion"), ana(), liquidar))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.total").value(212500))
                 .andExpect(jsonPath("$.lineas[0].vendidas").value(85));
+
         mvc.perform(con(post("/api/pedidos/" + pedido + "/liquidacion"), ana(), liquidar)).andExpect(status().isConflict());
         mvc.perform(con(get("/api/pedidos/" + pedido + "/liquidacion"), ana(), null)).andExpect(status().isOk())
                 .andExpect(jsonPath("$.total").value(212500));
+
+        // Los 15 sobrantes regresan físicamente al stock (140 + 15 = 155)
         mvc.perform(con(get("/api/productos/" + producto + "/stock"), ana(), null))
-                .andExpect(jsonPath("$.unidadesDisponibles").value(140));   // los sobrantes no regresan al stock
+                .andExpect(jsonPath("$.unidadesDisponibles").value(155));
 
         byte[] excel = mvc.perform(con(get("/api/reportes/diario"), admin(), null))
                 .andExpect(status().isOk())
@@ -197,6 +200,7 @@ class ConiCreamRestTest {
         long producto = crearProducto("Cono Sobrante", 24, 5);
         long pedido = crearPedido(ana(), producto, 10);
         mvc.perform(con(post("/api/pedidos/" + pedido + "/confirmacion"), ana(), null)).andExpect(status().isOk());
+        // ana llama a su propia liquidación con sobrantes mayores a los 10 despachados -> 400 Bad Request
         mvc.perform(con(post("/api/pedidos/" + pedido + "/liquidacion"), ana(),
                 "{\"sobrantes\":[{\"productoId\":" + producto + ",\"cantidad\":11}]}")).andExpect(status().isBadRequest());
         mvc.perform(con(get("/api/pedidos/" + pedido), ana(), null)).andExpect(jsonPath("$.estado").value("CONFIRMADO"));

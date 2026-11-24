@@ -14,6 +14,10 @@ import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import com.conicream.alpaso.application.port.in.result.ArchivoReporte;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
 /** Pedidos (HU-10) y liquidación (HU-11). El dueño sale del token, nunca del cuerpo de la petición. */
 @RestController
@@ -70,5 +74,17 @@ public class PedidoController {
     @GetMapping("/{id}/liquidacion")
     public LiquidacionResponse liquidacion(@AuthenticationPrincipal UsuarioAutenticado usuario, @PathVariable long id) {
         return LiquidacionResponse.de(liquidaciones.porPedido(Solicitantes.de(usuario), id));
+    }
+
+    @GetMapping(value = {"/{id}/comprobante-pdf", "/{id}/liquidacion/pdf"}, produces = MediaType.APPLICATION_PDF_VALUE)
+    public ResponseEntity<byte[]> descargarComprobantePdf(
+            @PathVariable long id,
+            @AuthenticationPrincipal UsuarioAutenticado usuario) {
+        ArchivoReporte reporte = liquidaciones.generarComprobantePdf(Solicitantes.de(usuario), id);
+        return ResponseEntity.ok()
+                .contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment()
+                        .filename(reporte.nombre()).build().toString())
+                .body(reporte.contenido());
     }
 }

@@ -22,6 +22,7 @@ ext {
     jjwtVersion = '0.12.6'
     archunitVersion = '1.4.1'   // Soporte nativo para bytecode de Java 25
     poiVersion = '5.3.0'
+    openpdfVersion = '2.0.3'
 }
 
 dependencies {
@@ -47,6 +48,9 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-test'
     testImplementation "com.tngtech.archunit:archunit-junit5:${archunitVersion}"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    // Comprobante de liquidación en PDF (HU-15)
+    implementation "com.github.librepdf:openpdf:${openpdfVersion}"
 }
 
 tasks.withType(JavaCompile).configureEach {

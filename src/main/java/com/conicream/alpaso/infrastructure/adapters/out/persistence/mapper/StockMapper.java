@@ -8,12 +8,12 @@ public final class StockMapper {
     private StockMapper() { }
 
     public static StockProducto aDominio(StockEntity e) {
-        return StockProducto.reconstruir(e.getProductoId(), e.getUnidadesPorCaja(), e.getUnidades());
+        return StockProducto.reconstruir(e.getProductoId(), e.getUnidades(), e.getStockMinimo());
     }
 
     public static void copiarA(StockEntity e, StockProducto s) {
         e.setProductoId(s.getProductoId());
-        e.setUnidadesPorCaja(s.getUnidadesPorCaja());
         e.setUnidades(s.unidadesDisponibles());
+        e.setStockMinimo(s.getStockMinimo());
     }
 }

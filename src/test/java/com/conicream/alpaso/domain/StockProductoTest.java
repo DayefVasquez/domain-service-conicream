@@ -7,68 +7,64 @@ import com.conicream.alpaso.domain.model.StockProducto;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+@DisplayName("Dominio: StockProducto en unidades puras")
 class StockProductoTest {
 
     @Test
-    @DisplayName("Las cajas se convierten a unidades según las unidades por caja")
-    void cajasAUnidades() {
-        StockProducto s = StockProducto.crear(1, 24, 10);
-        assertEquals(240, s.unidadesDisponibles());
-        assertEquals(10, s.cajasCompletas());
-        assertEquals(0, s.unidadesSueltas());
+    @DisplayName("Crea stock inicial en unidades y valida umbral mínimo")
+    void crearStockInicial() {
+        StockProducto s = StockProducto.crear(1L, 100, 20);
+        assertEquals(100, s.unidadesDisponibles());
+        assertEquals(20, s.getStockMinimo());
+        assertFalse(s.estaBajoDeStock());
     }
 
     @Test
-    void descontarDejaCajasYSueltas() {
-        StockProducto s = StockProducto.crear(1, 24, 10);
-        s.descontar(50);
-        assertEquals(190, s.unidadesDisponibles());
-        assertEquals(7, s.cajasCompletas());
-        assertEquals(22, s.unidadesSueltas());
+    @DisplayName("Alerta cuando las existencias caen al umbral mínimo o por debajo")
+    void alertaStockBajo() {
+        StockProducto s = StockProducto.crear(1L, 15, 20);
+        assertTrue(s.estaBajoDeStock());
     }
 
     @Test
-    @DisplayName("El stock nunca queda por debajo de cero")
-    void noBajaDeCero() {
-        StockProducto s = StockProducto.crear(1, 24, 1);
-        assertThrows(ValorInvalidoException.class, () -> s.descontar(25));
-        assertEquals(24, s.unidadesDisponibles());
-        s.descontar(24);
-        assertEquals(0, s.unidadesDisponibles());
-        assertThrows(ValorInvalidoException.class, () -> s.descontar(0));
+    @DisplayName("Repone unidades correctamente y rechaza cantidades negativas")
+    void reponerUnidades() {
+        StockProducto s = StockProducto.crear(1L, 50, 10);
+        s.reponer(30);
+        assertEquals(80, s.unidadesDisponibles());
+
+        assertThrows(ValorInvalidoException.class, () -> s.reponer(0));
+        assertThrows(ValorInvalidoException.class, () -> s.reponer(-5));
     }
 
     @Test
-    void reponerCajas() {
-        StockProducto s = StockProducto.crear(1, 12, 0);
-        s.reponerCajas(3);
-        assertEquals(36, s.unidadesDisponibles());
-        assertThrows(ValorInvalidoException.class, () -> s.reponerCajas(0));
-        assertThrows(ValorInvalidoException.class, () -> s.reponerCajas(-1));
-        assertThrows(ValorInvalidoException.class, () -> s.reponerCajas(100_001));
+    @DisplayName("Reintegra sobrantes de la liquidación al inventario disponible")
+    void reintegrarSobrantes() {
+        StockProducto s = StockProducto.crear(1L, 50, 10);
+        s.descontar(20); // Salieron 20 a la calle -> Quedan 30
+        assertEquals(30, s.unidadesDisponibles());
+
+        s.reintegrar(5); // Regresaron 5 no vendidos -> Quedan 35
+        assertEquals(35, s.unidadesDisponibles());
     }
 
     @Test
-    void conteoManualFijaCajasYSueltas() {
-        StockProducto s = StockProducto.crear(1, 24, 10);
-        s.corregir(2, 5);
-        assertEquals(53, s.unidadesDisponibles());
-        assertThrows(ValorInvalidoException.class, () -> s.corregir(2, 24));
-        assertThrows(ValorInvalidoException.class, () -> s.corregir(-1, 0));
-        assertThrows(ValorInvalidoException.class, () -> s.corregir(1, -1));
-        assertEquals(53, s.unidadesDisponibles());
+    @DisplayName("Ajuste físico manual fija el inventario real")
+    void ajusteFisico() {
+        StockProducto s = StockProducto.crear(1L, 50, 10);
+        s.ajustarFisico(42);
+        assertEquals(42, s.unidadesDisponibles());
+
+        assertThrows(ValorInvalidoException.class, () -> s.ajustarFisico(-1));
     }
 
     @Test
-    void alcanzaPara() {
-        StockProducto s = StockProducto.crear(1, 10, 1);
-        assertTrue(s.alcanzaPara(10));
-        assertFalse(s.alcanzaPara(11));
-    }
+    @DisplayName("Descuenta unidades y rechaza si no hay suficiente")
+    void descontarUnidades() {
+        StockProducto s = StockProducto.crear(1L, 10, 5);
+        s.descontar(8);
+        assertEquals(2, s.unidadesDisponibles());
 
-    @Test
-    void validaCajasInicialesYUnidadesPorCaja() {
-        assertThrows(ValorInvalidoException.class, () -> StockProducto.crear(1, 24, -1));
-        assertThrows(ValorInvalidoException.class, () -> StockProducto.crear(1, 0, 1));
+        assertThrows(ValorInvalidoException.class, () -> s.descontar(5));
     }
 }
